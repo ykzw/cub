@@ -707,6 +707,8 @@ struct DeviceRadixSortPolicy
             SEGMENTED_RADIX_BITS    = (sizeof(KeyT) > 1) ? 6 : 5,    // 3.3B 32b segmented keys/s (1080)
         };
 
+        #define SMALL_BLOCK 32
+
         // ScanPolicy
         typedef AgentScanPolicy <512, 23, BLOCK_LOAD_WARP_TRANSPOSE, LOAD_DEFAULT, BLOCK_STORE_WARP_TRANSPOSE, BLOCK_SCAN_RAKING_MEMOIZE> ScanPolicy;
 
@@ -722,8 +724,10 @@ struct DeviceRadixSortPolicy
         typedef AgentRadixSortDownsweepPolicy <CUB_SCALED_GRANULARITIES(256, 19, DominantT),  BLOCK_LOAD_DIRECT, LOAD_LDG, RADIX_RANK_MEMOIZE, BLOCK_SCAN_WARP_SCANS, SINGLE_TILE_RADIX_BITS>          SingleTilePolicy;
 
         // Segmented policies
-        typedef AgentRadixSortDownsweepPolicy <CUB_SCALED_GRANULARITIES(192, 39, DominantT),  BLOCK_LOAD_TRANSPOSE, LOAD_DEFAULT, RADIX_RANK_MEMOIZE, BLOCK_SCAN_WARP_SCANS, SEGMENTED_RADIX_BITS>     SegmentedPolicy;
-        typedef AgentRadixSortDownsweepPolicy <CUB_SCALED_GRANULARITIES(384, 11, DominantT),  BLOCK_LOAD_TRANSPOSE, LOAD_DEFAULT, RADIX_RANK_MEMOIZE, BLOCK_SCAN_WARP_SCANS, SEGMENTED_RADIX_BITS - 1> AltSegmentedPolicy;
+        // typedef AgentRadixSortDownsweepPolicy <CUB_SCALED_GRANULARITIES(192, 39, DominantT),  BLOCK_LOAD_TRANSPOSE, LOAD_DEFAULT, RADIX_RANK_MEMOIZE, BLOCK_SCAN_WARP_SCANS, SEGMENTED_RADIX_BITS>     SegmentedPolicy;
+        // typedef AgentRadixSortDownsweepPolicy <CUB_SCALED_GRANULARITIES(384, 11, DominantT),  BLOCK_LOAD_TRANSPOSE, LOAD_DEFAULT, RADIX_RANK_MEMOIZE, BLOCK_SCAN_WARP_SCANS, SEGMENTED_RADIX_BITS - 1> AltSegmentedPolicy;
+        typedef AgentRadixSortDownsweepPolicy <CUB_SCALED_GRANULARITIES(SMALL_BLOCK, 3, DominantT),  BLOCK_LOAD_TRANSPOSE, LOAD_DEFAULT, RADIX_RANK_MEMOIZE, BLOCK_SCAN_WARP_SCANS, SEGMENTED_RADIX_BITS>     SegmentedPolicy;
+        typedef AgentRadixSortDownsweepPolicy <CUB_SCALED_GRANULARITIES(SMALL_BLOCK, 1, DominantT),  BLOCK_LOAD_TRANSPOSE, LOAD_DEFAULT, RADIX_RANK_MEMOIZE, BLOCK_SCAN_WARP_SCANS, SEGMENTED_RADIX_BITS - 1> AltSegmentedPolicy;
     };
 
 
@@ -1125,14 +1129,14 @@ struct DispatchRadixSort :
             // Init regular and alternate-digit kernel configurations
             PassConfig<UpsweepKernelT, ScanKernelT, DownsweepKernelT> pass_config, alt_pass_config;
             if ((error = pass_config.template InitPassConfig<
-                    typename ActivePolicyT::UpsweepPolicy, 
-                    typename ActivePolicyT::ScanPolicy, 
+                    typename ActivePolicyT::UpsweepPolicy,
+                    typename ActivePolicyT::ScanPolicy,
                     typename ActivePolicyT::DownsweepPolicy>(
                 upsweep_kernel, scan_kernel, downsweep_kernel, ptx_version, sm_count, num_items))) break;
 
             if ((error = alt_pass_config.template InitPassConfig<
-                    typename ActivePolicyT::AltUpsweepPolicy, 
-                    typename ActivePolicyT::ScanPolicy, 
+                    typename ActivePolicyT::AltUpsweepPolicy,
+                    typename ActivePolicyT::ScanPolicy,
                     typename ActivePolicyT::AltDownsweepPolicy>(
                 alt_upsweep_kernel, scan_kernel, alt_downsweep_kernel, ptx_version, sm_count, num_items))) break;
 
@@ -1615,5 +1619,3 @@ struct DispatchSegmentedRadixSort :
 
 }               // CUB namespace
 CUB_NS_POSTFIX  // Optional outer namespace(s)
-
-
